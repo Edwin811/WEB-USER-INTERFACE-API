@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Aplikasi CRUD Produk</title>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    form { margin-bottom: 1em; }
+    input[type="text"], input[type="number"] {
+      padding: 6px; width: 200px; margin: 4px 8px 4px 0;
+    }
+    button { margin: 4px 0; }
+    #products { list-style: none; padding: 0; }
+    #products li {
+      padding: 0.5em; border: 1px solid #ccc; border-radius: 4px;
+      margin-bottom: 0.5em;
+    }
+    #single-product { margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>CRUD Produk</h1>
+
+  <!-- FORM CREATE -->
+  <form id="form-create">
+    <h2>Tambah Produk</h2>
+    <input type="text" id="name" placeholder="Nama Produk" required />
+    <input type="number" id="price" placeholder="Harga" required />
+    <input type="number" id="stock" placeholder="Stok" required />
+    <button type="submit">Tambah</button>
+  </form>
+
+  <!-- FORM READ ONE -->
+  <form id="form-read-one">
+    <h2>Lihat Produk Berdasarkan ID</h2>
+    <input type="number" id="read-id" placeholder="ID Produk" required />
+    <button type="submit">Lihat</button>
+  </form>
+  <div id="single-product"></div>
+
+  <!-- READ MANY -->
+  <h2>Daftar Produk</h2>
+  <ul id="products"></ul>
+
+  <script>
+    const API = 'https://praktikum-paa.vercel.app/api/produk';
+
+    function fetchProducts() {
+      $.ajax({
+        url: API,
+        method: 'GET',
+        dataType: 'json',
+        success(res) {
+          if (res.success && Array.isArray(res.data)) {
+            const $list = $('#products').empty();
+            res.data.forEach(p => {
+              $list.append(`
+                <li data-id="${p.id}">
+                  <strong>ID ${p.id}: ${p.name}</strong><br/>
+                  Harga: Rp${p.price} | Stok: ${p.stock}<br/>
+                  <button class="btn-update">Edit</button>
+                  <button class="btn-delete">Hapus</button>
+                </li>
+              `);
+            });
+          } else {
+            alert('Data produk tidak tersedia.');
+          }
+        },
+        error(xhr, status, err) {
+          console.error('Gagal mengambil produk:', status, err);
+          alert('Gagal memuat data produk.');
+        }
+      });
+    }
+
+    // CREATE
+    $('#form-create').submit(function(e) {
+      e.preventDefault();
+      const payload = {
+        name: $('#name').val(),
+        price: Number($('#price').val()),
+        stock: Number($('#stock').val())
+      };
+
+      if (!payload.name || payload.price < 0 || payload.stock < 0) {
+        alert('Data tidak valid!');
+        return;
+      }
+
+      $.ajax({
+        url: API,
+        method: 'POST',
+        contentType: 'application/json',
+        dataType: 'json',
+        data: JSON.stringify(payload),
+        success() {
+          fetchProducts();
+          $('#form-create').trigger('reset');
+        },
+        error(xhr, status, err) {
+          console.error('Gagal menambah produk:', status, err);
+          alert('Gagal menambahkan produk.');
+        }
+      });
+    });
+
+    // READ ONE
+    $('#form-read-one').submit(function(e) {
+      e.preventDefault();
+      const id = $('#read-id').val().trim();
+      $('#single-product').text('Memuat...');
+
+      $.ajax({
+        url: `${API}/${id}`,
+        method: 'GET',
+        dataType: 'json',
+        success(res) {
+          if (res.success && res.data) {
+            const p = res.data;
+            $('#single-product').html(`
+              <strong>${p.name}</strong><br/>
+              Harga: Rp${p.price}<br/>
+              Stok: ${p.stock}<hr/>
+            `);
+          } else {
+            $('#single-product').html('<p style="color:red;">Produk tidak ditemukan.</p>');
+          }
+        },
+        error(xhr, status, err) {
+          console.error('Gagal mengambil data:', status, err);
+          $('#single-product').html('<p style="color:red;">Produk tidak ditemukan.</p>');
+        }
+      });
+    });
+
+    // UPDATE & DELETE
+    $('#products')
+      .on('click', '.btn-update', function() {
+        const $li = $(this).closest('li');
+        const id = $li.data('id');
+        const newName = prompt('Nama baru:');
+        const newPrice = prompt('Harga baru:');
+        const newStock = prompt('Stok baru:');
+
+        if (!newName || isNaN(newPrice) || isNaN(newStock)) {
+          alert('Input tidak valid.');
+          return;
+        }
+
+        $.ajax({
+          url: `${API}/${id}`,
+          method: 'PUT',
+          contentType: 'application/json',
+          dataType: 'json',
+          data: JSON.stringify({
+            name: newName,
+            price: Number(newPrice),
+            stock: Number(newStock)
+          }),
+          success: fetchProducts,
+          error() {
+            alert('Gagal mengupdate produk.');
+          }
+        });
+      })
+
+      .on('click', '.btn-delete', function() {
+        const $li = $(this).closest('li');
+        const id = $li.data('id');
+
+        if (!confirm(`Yakin ingin menghapus produk ID ${id}?`)) return;
+
+        $.ajax({
+          url: `${API}/${id}`,
+          method: 'DELETE',
+          success: fetchProducts,
+          error() {
+            alert('Gagal menghapus produk.');
+          }
+        });
+      });
+
+    // Jalankan saat awal
+    $(fetchProducts);
+  </script>
+</body>
+</html>

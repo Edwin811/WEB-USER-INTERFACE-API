@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Percobaan 2 & 3: CRUD + Error Handling</title>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    form { margin-bottom: 1em; }
+    form label { display: inline-block; width: 80px; }
+    input[type="text"], input[type="url"], input[type="number"] {
+      padding: 4px; width: 200px; margin-right: 8px;
+    }
+    button { margin: 4px 0; }
+    #users { list-style:none; padding:0; }
+    #users li {
+      padding:0.5em; border:1px solid #ccc; border-radius:4px;
+      margin-bottom:0.5em;
+    }
+    #users img { vertical-align: middle; width: 30px; height: 30px; border-radius:50%; margin-left:8px; }
+    #single-user { margin: 10px 0; padding:10px; border:1px dashed #666; }
+    #error-result { color: red; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Percobaan 1, 2 & 3: CRUD Lengkap + Error Handling</h1>
+
+  <!-- CREATE -->
+  <form id="form-create">
+    <h2>Create User</h2>
+    <label>Nama:</label>
+    <input type="text" id="name" required /><br/>
+    <label>Avatar:</label>
+    <input type="url" id="avatar" required /><br/>
+    <button type="submit">Create</button>
+  </form>
+
+  <!-- READ ONE -->
+  <form id="form-read-one">
+    <h2>Read One User</h2>
+    <label>ID:</label>
+    <input type="number" id="read-id" min="1" placeholder="Masukkan ID" required />
+    <button type="submit">Get User</button>
+  </form>
+  <div id="single-user"></div>
+
+  <!-- READ MANY -->
+  <h2>Daftar Users</h2>
+  <ul id="users"></ul>
+
+  <!-- ERROR HANDLING -->
+  <h2>Percobaan 3: Error Handling</h2>
+  <button id="btn-test-error">Test Error Handling</button>
+  <div id="error-result"></div>
+
+  <script>
+    const API = 'https://64fada7acb9c00518f7a4784.mockapi.io/users';
+
+    function fetchUsers() {
+      $.ajax({
+        url: API,
+        method: 'GET',
+        dataType: 'json',
+        success(data) {
+          const $list = $('#users').empty();
+          data.forEach(u => {
+            $list.append(`
+              <li data-id="${u.id}">
+                <strong>${u.id} – ${u.name}</strong>
+                <img src="${u.avatar}" alt="Avatar"/>
+                <br/>
+                <button class="btn-update">Update</button>
+                <button class="btn-delete">Delete</button>
+              </li>
+            `);
+          });
+        },
+        error(_,__,err) {
+          console.error('GET all error:', err);
+        }
+      });
+    }
+
+    $('#form-create').submit(function(e) {
+      e.preventDefault();
+      const payload = {
+        name: $('#name').val(),
+        avatar: $('#avatar').val()
+      };
+      $.ajax({
+        url: API,
+        method: 'POST',
+        data: payload,
+        success() {
+          fetchUsers();
+          $('#name, #avatar').val('');
+        },
+        error(_,__,err) {
+          console.error('POST error:', err);
+        }
+      });
+    });
+
+    $('#form-read-one').submit(function(e) {
+      e.preventDefault();
+      const id = $('#read-id').val().trim();
+      $('#single-user').text('Loading…');
+      $.ajax({
+        url: `${API}/${id}`,
+        method: 'GET',
+        dataType: 'json',
+        success(u) {
+          $('#single-user').html(`
+            <p><strong>ID:</strong> ${u.id}</p>
+            <p><strong>Nama:</strong> ${u.name}</p>
+            <p><img src="${u.avatar}" alt="Avatar" width="80"/></p>
+          `);
+        },
+        error(_,__,err) {
+          $('#single-user').html(`<p style="color:red;">User dengan ID ${id} tidak ditemukan.</p>`);
+        }
+      });
+    });
+
+    $('#users')
+      .on('click', '.btn-update', function() {
+        const $li = $(this).closest('li');
+        const id = $li.data('id');
+        const currentName = $li.find('strong').text().split('–')[1].trim();
+        const newName = prompt('Nama baru:', currentName);
+        if (!newName) return;
+        $.ajax({
+          url: `${API}/${id}`,
+          method: 'PUT',
+          data: { name: newName },
+          success() { fetchUsers(); },
+          error(_,__,err) { console.error('PUT error:', err); }
+        });
+      })
+      .on('click', '.btn-delete', function() {
+        const $li = $(this).closest('li');
+        const id = $li.data('id');
+        if (!confirm(`Yakin hapus user ID ${id}?`)) return;
+        $.ajax({
+          url: `${API}/${id}`,
+          method: 'DELETE',
+          success() { fetchUsers(); },
+          error(_,__,err) { console.error('DELETE error:', err); }
+        });
+      });
+
+    // Percobaan 3: Error Handling
+    $('#btn-test-error').click(function() {
+      $.ajax({
+        url: 'https://64fada7acb9c00518f7a4784.mockapi.io/salah', // URL salah
+        method: 'GET',
+        dataType: 'json',
+        success(data) {
+          $('#error-result').html(`<p style="color:green;">(Tidak seharusnya berhasil): ${JSON.stringify(data)}</p>`);
+        },
+        error(xhr, status, err) {
+          console.error('Percobaan 3 error:', err);
+          $('#error-result').html(`<p>Terjadi kesalahan saat memanggil API: ${status} - ${xhr.statusText}</p>`);
+        }
+      });
+    });
+
+    $(fetchUsers);
+  </script>
+</body>
+</html>
